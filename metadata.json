@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Nearby Restaurant Finder",
+  "description": "A web application that uses Google Maps to find and display restaurants within a 1500-meter radius of your current location.",
+  "requestFramePermissions": []
+}
