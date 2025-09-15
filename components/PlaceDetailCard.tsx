@@ -1,6 +1,6 @@
 import React from 'react';
 import type { SimplePlace } from '../types';
-import { StarIcon, DirectionsIcon, PlayIcon, CalendarIcon, XIcon } from './icons';
+import { StarIcon, DirectionsIcon, StartIcon, CalendarIcon, XIcon } from './icons';
 
 interface PlaceDetailCardProps {
     place: SimplePlace;
@@ -71,15 +71,24 @@ export const PlaceDetailCard: React.FC<PlaceDetailCardProps> = ({ place, onClose
                 </div>
             </div>
 
-            <div className="flex space-x-3 my-4">
-                <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center transition-colors">
-                    <DirectionsIcon className="mr-2" /> Directions
+            <div className="flex justify-start items-center my-6 space-x-3">
+                <a href={directionsUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center px-5 py-2.5 rounded-full bg-teal-600 text-white font-semibold shadow-md hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    aria-label="Get directions">
+                    <DirectionsIcon className="w-5 h-5 mr-2" />
+                    <span className="text-sm">Directions</span>
                 </a>
-                <a href={directionsUrl} target="_blank" rel="noopener noreferrer" className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full flex items-center justify-center transition-colors">
-                    <PlayIcon className="mr-2" /> Start
+                <a href={directionsUrl} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center px-5 py-2.5 rounded-full bg-teal-50 text-teal-700 font-semibold shadow-md hover:bg-teal-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    aria-label="Start navigation">
+                    <StartIcon className="w-5 h-5 mr-2" />
+                    <span className="text-sm">Start</span>
                 </a>
-                 <button disabled className="flex-1 bg-gray-100 text-gray-400 font-bold py-2 px-4 rounded-full flex items-center justify-center cursor-not-allowed">
-                    <CalendarIcon className="mr-2" /> Reserve
+                <button
+                    className="flex items-center justify-center px-5 py-2.5 rounded-full bg-teal-50 text-teal-700 font-semibold shadow-md hover:bg-teal-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
+                    aria-label="Reserve a table">
+                    <CalendarIcon className="w-5 h-5 mr-2" />
+                    <span className="text-sm">Reserve</span>
                 </button>
             </div>
             
