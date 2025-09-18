@@ -5,6 +5,7 @@ import { StarIcon, DirectionsIcon, StartIcon, CalendarIcon, XIcon } from './icon
 interface PlaceDetailCardProps {
     place: SimplePlace;
     onClose: () => void;
+    onGetDirections: () => void;
 }
 
 const renderStars = (rating?: number) => {
@@ -37,8 +38,8 @@ const getPlaceType = (types?: string[]) => {
     return foundType ? foundType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Place';
 };
 
-export const PlaceDetailCard: React.FC<PlaceDetailCardProps> = ({ place, onClose }) => {
-    const directionsUrl = place.place_id ? `https://www.google.com/maps/dir/?api=1&destination_place_id=${place.place_id}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || '')}`;
+export const PlaceDetailCard: React.FC<PlaceDetailCardProps> = ({ place, onClose, onGetDirections }) => {
+    const startNavigationUrl = place.place_id ? `https://www.google.com/maps/dir/?api=1&destination_place_id=${place.place_id}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || '')}`;
     const isOpen = place.opening_hours?.isOpen?.();
 
     return (
@@ -72,15 +73,16 @@ export const PlaceDetailCard: React.FC<PlaceDetailCardProps> = ({ place, onClose
             </div>
 
             <div className="flex justify-start items-center my-6 space-x-3">
-                <a href={directionsUrl} target="_blank" rel="noopener noreferrer"
+                <button 
+                    onClick={onGetDirections}
                     className="flex items-center justify-center px-5 py-2.5 rounded-full bg-teal-600 text-white font-semibold shadow-md hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                    aria-label="Get directions">
+                    aria-label="Get directions on map">
                     <DirectionsIcon className="w-5 h-5 mr-2" />
                     <span className="text-sm">Directions</span>
-                </a>
-                <a href={directionsUrl} target="_blank" rel="noopener noreferrer"
+                </button>
+                <a href={startNavigationUrl} target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center px-5 py-2.5 rounded-full bg-teal-50 text-teal-700 font-semibold shadow-md hover:bg-teal-100 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-                    aria-label="Start navigation">
+                    aria-label="Start navigation in Google Maps">
                     <StartIcon className="w-5 h-5 mr-2" />
                     <span className="text-sm">Start</span>
                 </a>

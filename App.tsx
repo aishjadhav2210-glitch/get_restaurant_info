@@ -53,7 +53,8 @@ const positionUnavailableErrorMessage = (
 
 
 const App: React.FC = () => {
-    const [currentLocation, setCurrentLocation] = useState<any | null>(null);
+    const [currentLocation, setCurrentLocation] = useState<any | null>(null); // Represents map center
+    const [userLocation, setUserLocation] = useState<any | null>(null); // Represents user's actual location
     const [restaurants, setRestaurants] = useState<SimplePlace[]>([]);
     const [status, setStatus] = useState<Status>('idle');
     const [error, setError] = useState<React.ReactNode | null>(null);
@@ -62,6 +63,7 @@ const App: React.FC = () => {
     const [selectedPlaceDetails, setSelectedPlaceDetails] = useState<SimplePlace | null>(null);
     const [panelState, setPanelState] = useState<PanelState>('hidden');
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
+    const [directions, setDirections] = useState<any | null>(null);
 
     const mapInstanceRef = useRef<any | null>(null);
     // Fix: The type for a timeout ID in the browser is `number`, not `NodeJS.Timeout`.
@@ -78,7 +80,7 @@ const App: React.FC = () => {
     const isDetailView = selectedPlaceDetails !== null;
 
     const findRestaurants = useCallback((location?: any) => {
-        const searchLocation = location || currentLocation;
+        const searchLocation = location || userLocation;
         if (!mapInstanceRef.current || !searchLocation) {
             setError("Map isn't ready or location not available. Please try again.");
             setStatus('error');
@@ -91,6 +93,7 @@ const App: React.FC = () => {
         setSelectedPlaceDetails(null);
         setSelectedRestaurantId(null);
         setError(null);
+        setDirections(null);
         setPanelState('peek');
         
         const service = new window.google.maps.places.PlacesService(mapInstanceRef.current!);
@@ -115,7 +118,7 @@ const App: React.FC = () => {
                 setPanelState('peek');
             }
         });
-    }, [currentLocation]);
+    }, [userLocation]);
 
     const handleRequestLocationAndSearch = useCallback(async () => {
         setStatus('locating');
@@ -123,6 +126,7 @@ const App: React.FC = () => {
         setSelectedPlaceDetails(null);
         setSelectedRestaurantId(null);
         setError(null);
+        setDirections(null);
         setInfoMessage(null);
         if (infoTimerRef.current) clearTimeout(infoTimerRef.current);
         setPanelState('peek');
@@ -146,11 +150,12 @@ const App: React.FC = () => {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude, accuracy } = position.coords;
-                    const userLocation = new window.google.maps.LatLng(latitude, longitude);
-                    setCurrentLocation(userLocation);
+                    const userLatLng = new window.google.maps.LatLng(latitude, longitude);
+                    setCurrentLocation(userLatLng);
+                    setUserLocation(userLatLng);
                     setInfoMessage(`Location found with accuracy of ${Math.round(accuracy)} meters.`);
                     infoTimerRef.current = setTimeout(() => setInfoMessage(null), 5000);
-                    findRestaurants(userLocation);
+                    findRestaurants(userLatLng);
                 },
                 (geoError) => {
                     let errorMessage: React.ReactNode = 'Could not get your location. Please try again.';
@@ -206,13 +211,14 @@ const App: React.FC = () => {
         setRestaurants([]);
         setSelectedPlaceDetails(null);
         setError(null);
+        setDirections(null);
         setPanelState('peek');
         
         const service = new window.google.maps.places.PlacesService(mapInstanceRef.current!);
         const request: any = {
             query: searchQuery,
             fields: ['place_id'],
-            locationBias: currentLocation ? { center: currentLocation, radius: 20000 } : undefined,
+            locationBias: userLocation ? { center: userLocation, radius: 20000 } : undefined,
         };
 
         service.textSearch(request, (results: any, searchStatus: string) => {
@@ -252,9 +258,38 @@ const App: React.FC = () => {
         setSelectedPlaceDetails(null);
         setSearchQuery('');
         setSelectedRestaurantId(null);
+        setDirections(null);
         handleRequestLocationAndSearch();
     };
     
+    const handleGetDirections = useCallback(() => {
+        if (!userLocation || !selectedPlaceDetails?.geometry?.location) {
+            setError("Could not get directions. User location or destination is missing.");
+            return;
+        }
+
+        // Clear existing restaurant markers to focus on the route
+        setRestaurants([]);
+        setError(null);
+
+        const directionsService = new window.google.maps.DirectionsService();
+        const request = {
+            origin: userLocation,
+            destination: selectedPlaceDetails.geometry.location,
+            travelMode: window.google.maps.TravelMode.DRIVING,
+        };
+
+        directionsService.route(request, (result: any, status: string) => {
+            if (status === window.google.maps.DirectionsStatus.OK) {
+                setDirections(result);
+            } else {
+                setError('Directions request failed due to ' + status);
+                // Restore the restaurant marker if directions fail
+                setRestaurants([selectedPlaceDetails]);
+            }
+        });
+    }, [userLocation, selectedPlaceDetails]);
+
     const getPanelHeight = () => {
         switch(panelState) {
             case 'hidden': return 'h-0';
@@ -268,8 +303,10 @@ const App: React.FC = () => {
         <div className="w-full h-full relative overflow-hidden bg-gray-100">
             <MapComponent
                 center={currentLocation}
+                userLocation={userLocation}
                 restaurants={restaurants}
                 selectedRestaurantId={selectedRestaurantId}
+                directions={directions}
                 onMapLoad={handleMapLoad}
                 onMarkerClick={handleMarkerClick}
             />
@@ -319,7 +356,7 @@ const App: React.FC = () => {
                         {error && <div className="text-red-700 bg-red-100 p-3 rounded-lg mx-3">{error}</div>}
                         
                         {selectedPlaceDetails ? (
-                            <PlaceDetailCard place={selectedPlaceDetails} onClose={handleClearSearch} />
+                            <PlaceDetailCard place={selectedPlaceDetails} onClose={handleClearSearch} onGetDirections={handleGetDirections} />
                         ) : (
                             <div className="space-y-3 mt-2">
                                 {restaurants.map((restaurant) => (

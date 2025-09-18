@@ -5,17 +5,20 @@ import type { SimplePlace } from '../types';
 
 interface MapComponentProps {
     center: any | null;
+    userLocation: any | null;
     restaurants: SimplePlace[];
     selectedRestaurantId: string | null;
+    directions: any | null;
     onMapLoad: (map: any) => void;
     onMarkerClick: (id: string) => void;
 }
 
-export const MapComponent: React.FC<MapComponentProps> = memo(({ center, restaurants, selectedRestaurantId, onMapLoad, onMarkerClick }) => {
+export const MapComponent: React.FC<MapComponentProps> = memo(({ center, userLocation, restaurants, selectedRestaurantId, directions, onMapLoad, onMarkerClick }) => {
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any | null>(null);
     const markersRef = useRef<{ [key: string]: any }>({});
     const userMarkerRef = useRef<any | null>(null);
+    const directionsRendererRef = useRef<any | null>(null);
 
     useEffect(() => {
         if (mapContainerRef.current && !mapInstance.current) {
@@ -26,16 +29,33 @@ export const MapComponent: React.FC<MapComponentProps> = memo(({ center, restaur
                 zoomControl: true,
             });
             mapInstance.current = map;
+            
+            directionsRendererRef.current = new window.google.maps.DirectionsRenderer({
+                polylineOptions: {
+                    strokeColor: "#4285F4", // Google Maps blue
+                    strokeOpacity: 0.9,
+                    strokeWeight: 6
+                }
+            });
+            directionsRendererRef.current.setMap(map);
+
             onMapLoad(map);
         }
     }, [center, onMapLoad]);
+    
+    useEffect(() => {
+        // Effect for panning the map
+        if (mapInstance.current && center && !directions) {
+            mapInstance.current.panTo(center);
+        }
+    }, [center, directions]);
 
     useEffect(() => {
-        if (mapInstance.current && center) {
-            mapInstance.current.panTo(center);
+        // Effect for managing the user's location marker
+        if (mapInstance.current && userLocation) {
             if (!userMarkerRef.current) {
                 userMarkerRef.current = new window.google.maps.Marker({
-                    position: center,
+                    position: userLocation,
                     map: mapInstance.current,
                     title: "Your Location",
                     icon: {
@@ -46,12 +66,26 @@ export const MapComponent: React.FC<MapComponentProps> = memo(({ center, restaur
                         strokeColor: "white",
                         strokeWeight: 2,
                     },
+                    zIndex: 200, // Ensure user marker is on top
                 });
             } else {
-                userMarkerRef.current.setPosition(center);
+                userMarkerRef.current.setPosition(userLocation);
             }
+            // Ensure marker is visible if it was hidden
+            if (!userMarkerRef.current.getMap()) {
+                userMarkerRef.current.setMap(mapInstance.current);
+            }
+        } else if (userMarkerRef.current) {
+            // Hide marker if userLocation is null
+            userMarkerRef.current.setMap(null);
         }
-    }, [center]);
+    }, [userLocation]);
+    
+    useEffect(() => {
+        if (directionsRendererRef.current) {
+            directionsRendererRef.current.setDirections(directions);
+        }
+    }, [directions]);
 
     useEffect(() => {
         if (!mapInstance.current) return;
