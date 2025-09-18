@@ -6,7 +6,7 @@ import { MapComponent } from './components/MapComponent';
 import { RestaurantCard } from './components/RestaurantCard';
 import { PlaceDetailCard } from './components/PlaceDetailCard';
 import { Spinner } from './components/Spinner';
-import { SearchIcon, MinusIcon, XIcon } from './components/icons';
+import { SearchIcon, MinusIcon, XIcon, LocationMarkerIcon } from './components/icons';
 
 type Status = 'idle' | 'locating' | 'searching' | 'success' | 'error';
 type PanelState = 'hidden' | 'peek' | 'full';
@@ -119,6 +119,65 @@ const App: React.FC = () => {
             }
         });
     }, [userLocation]);
+    
+    const handleRequestLocation = useCallback(async () => {
+        setStatus('locating');
+        setError(null);
+        setInfoMessage(null);
+        if (infoTimerRef.current) clearTimeout(infoTimerRef.current);
+        setPanelState('hidden');
+
+        if (!navigator.geolocation) {
+            setError('Geolocation is not supported by your browser.');
+            setStatus('error');
+            setPanelState('peek');
+            return;
+        }
+
+        try {
+            if (navigator.permissions && navigator.permissions.query) {
+                const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
+                if (permissionStatus.state === 'denied') {
+                    setError(deniedErrorMessage);
+                    setStatus('error');
+                    setPanelState('peek');
+                    return;
+                }
+            }
+        
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy } = position.coords;
+                    const userLatLng = new window.google.maps.LatLng(latitude, longitude);
+                    setCurrentLocation(userLatLng);
+                    setUserLocation(userLatLng);
+                    setInfoMessage(`Location found with accuracy of ${Math.round(accuracy)} meters.`);
+                    infoTimerRef.current = setTimeout(() => setInfoMessage(null), 5000);
+                    setStatus('idle');
+                    setPanelState('peek');
+                },
+                (geoError) => {
+                    let errorMessage: React.ReactNode = 'Could not get your location. Please try again.';
+                     if (geoError.code === geoError.PERMISSION_DENIED) {
+                        errorMessage = deniedErrorMessage;
+                    } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
+                        errorMessage = positionUnavailableErrorMessage;
+                    } else if (geoError.code === geoError.TIMEOUT) {
+                        errorMessage = "The request to get user location timed out. Please try again."
+                    }
+                    setError(errorMessage);
+                    setStatus('error');
+                    setPanelState('peek');
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        } catch (err) {
+            console.error("Error checking permissions:", err);
+            setError('An unexpected error occurred while checking location permissions.');
+            setStatus('error');
+            setPanelState('peek');
+        }
+    }, []);
 
     const handleRequestLocationAndSearch = useCallback(async () => {
         setStatus('locating');
@@ -179,8 +238,8 @@ const App: React.FC = () => {
     }, [findRestaurants]);
     
     useEffect(() => {
-        // On initial load, automatically request the user's location and search for restaurants.
-        handleRequestLocationAndSearch();
+        // On initial load, just get the user's location.
+        handleRequestLocation();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); // This effect should run only once when the component mounts.
 
@@ -350,9 +409,19 @@ const App: React.FC = () => {
                     </div>
                     <div className="px-4 pb-4 flex-grow overflow-y-auto">
                         {status === 'idle' && restaurants.length === 0 && !error && !selectedPlaceDetails && (
-                             <div className="text-center text-gray-600 p-4">Search for a place or find nearby restaurants to see results here.</div>
+                             <div className="text-center text-gray-600 p-4 flex flex-col items-center justify-center h-full">
+                                <span>Search for a place or find restaurants near you.</span>
+                                <button
+                                    onClick={handleRequestLocationAndSearch}
+                                    className="mt-4 flex items-center justify-center px-5 py-2.5 rounded-full bg-indigo-600 text-white font-semibold shadow-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    <LocationMarkerIcon className="w-5 h-5 mr-2" />
+                                    <span>Find Nearby</span>
+                                </button>
+                             </div>
                         )}
                         {status === 'locating' && <div className="text-center text-gray-600 p-4 flex items-center justify-center"><Spinner className="mr-2"/>Getting your location...</div>}
+                        {status === 'searching' && <div className="text-center text-gray-600 p-4 flex items-center justify-center"><Spinner className="mr-2"/>Searching for restaurants...</div>}
                         {error && <div className="text-red-700 bg-red-100 p-3 rounded-lg mx-3">{error}</div>}
                         
                         {selectedPlaceDetails ? (

@@ -19,6 +19,8 @@ export const MapComponent: React.FC<MapComponentProps> = memo(({ center, userLoc
     const markersRef = useRef<{ [key: string]: any }>({});
     const userMarkerRef = useRef<any | null>(null);
     const directionsRendererRef = useRef<any | null>(null);
+    // Use a ref to manage the animation timeout.
+    const animationTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (mapContainerRef.current && !mapInstance.current) {
@@ -87,17 +89,21 @@ export const MapComponent: React.FC<MapComponentProps> = memo(({ center, userLoc
         }
     }, [directions]);
 
+    // This effect handles creating, updating, and removing restaurant markers.
     useEffect(() => {
         if (!mapInstance.current) return;
 
-        // Clear old markers not in the new list
-        Object.keys(markersRef.current).forEach(placeId => {
-            if (!restaurants.find(r => r.place_id === placeId)) {
-                markersRef.current[placeId].setMap(null);
-                delete markersRef.current[placeId];
-            }
+        const existingIds = Object.keys(markersRef.current);
+        const newIds = restaurants.map(r => r.place_id).filter(Boolean) as string[];
+
+        // Remove markers that are no longer in the restaurants list
+        const idsToRemove = existingIds.filter(id => !newIds.includes(id));
+        idsToRemove.forEach(placeId => {
+            markersRef.current[placeId].setMap(null);
+            delete markersRef.current[placeId];
         });
-        
+
+        // Add new markers for restaurants not already on the map
         restaurants.forEach(place => {
             if (!place.geometry?.location || !place.place_id) return;
 
@@ -110,13 +116,41 @@ export const MapComponent: React.FC<MapComponentProps> = memo(({ center, userLoc
                 marker.addListener('click', () => onMarkerClick(place.place_id!));
                 markersRef.current[place.place_id] = marker;
             }
-            
-            const marker = markersRef.current[place.place_id];
-            const isSelected = place.place_id === selectedRestaurantId;
-            marker.setAnimation(isSelected ? window.google.maps.Animation.BOUNCE : null);
-            marker.setZIndex(isSelected ? 100 : 1);
         });
-    }, [restaurants, selectedRestaurantId, onMarkerClick]);
+    }, [restaurants, onMarkerClick]);
+
+    // This effect handles the animation for the selected marker to prevent "dancing".
+    useEffect(() => {
+        // Stop any currently running animation timeout
+        if (animationTimeoutRef.current) {
+            clearTimeout(animationTimeoutRef.current);
+        }
+
+        // Reset all markers to their default state
+        Object.values(markersRef.current).forEach((marker: any) => {
+            marker.setAnimation(null);
+            marker.setZIndex(1);
+        });
+
+        // If a restaurant is selected, animate its marker
+        if (selectedRestaurantId && markersRef.current[selectedRestaurantId]) {
+            const marker = markersRef.current[selectedRestaurantId];
+            marker.setAnimation(window.google.maps.Animation.BOUNCE);
+            marker.setZIndex(100);
+
+            // Set a timeout to stop the animation after a short period (e.g., two bounces)
+            animationTimeoutRef.current = setTimeout(() => {
+                marker.setAnimation(null);
+            }, 1400); // 1400ms is about two bounces
+        }
+        
+        // Cleanup function to clear the timeout when the component unmounts or the effect re-runs
+        return () => {
+            if (animationTimeoutRef.current) {
+                clearTimeout(animationTimeoutRef.current);
+            }
+        };
+    }, [selectedRestaurantId]);
 
     return <div ref={mapContainerRef} className="w-full h-full" />;
 });
